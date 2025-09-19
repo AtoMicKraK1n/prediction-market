@@ -1,10 +1,8 @@
 use anchor_lang::prelude::*;
 
 #[account]
-#[derive(InitSpace)]
 pub struct Market {
     pub admin: Pubkey,
-    #[max_len(280)]
     pub question: String,
     pub created_at: i64,
     pub expires_at: i64,
@@ -20,13 +18,15 @@ pub struct Market {
     pub bump: u8,
 }
 
+// In programs/prediction-market/src/state/market.rs
+
 impl Market {
+    // This const is for manual space calculation if you remove #[derive(InitSpace)]
+    pub const INIT_SPACE: usize = 8 + 32 + (4 + 280) + 8 + 8 + 8 + 8 + 8 + 4 + 4 + 1 + 1 + (1 + 1) + 32 + 1;
 
     pub fn is_active(&self) -> bool {
         let clock = Clock::get().unwrap();
-        !self.is_settled && 
-        !self.is_cancelled && 
-        clock.unix_timestamp < self.expires_at
+        !self.is_settled && !self.is_cancelled && clock.unix_timestamp < self.expires_at
     }
 
     pub fn is_expired(&self) -> bool {
@@ -58,11 +58,11 @@ impl Market {
             return bet_amount;
         }
 
-        // Payout = (bet_amount / winning_side_total) * total_pool
-        bet_amount
-            .checked_mul(total_pool)
+        // Using u128 for intermediate multiplication to prevent overflow
+        (bet_amount as u128)
+            .checked_mul(total_pool as u128)
             .unwrap_or(0)
-            .checked_div(winning_side_total)
-            .unwrap_or(bet_amount)
+            .checked_div(winning_side_total as u128)
+            .unwrap_or(0) as u64
     }
 }

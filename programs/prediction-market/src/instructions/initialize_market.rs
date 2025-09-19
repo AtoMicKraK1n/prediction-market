@@ -59,10 +59,10 @@ pub fn initialize_market(
         PredictionMarketError::QuestionTooLong
     );
 
-    require!(
-        duration_seconds > 0,
-        PredictionMarketError::InvalidDuration
-    );
+    // require!(
+    //     duration_seconds > 0,
+    //     PredictionMarketError::InvalidDuration
+    // );
 
     require!(
         min_bet_amount > 0,

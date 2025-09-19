@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use crate::state::{Market, UserPosition};
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 use crate::errors::PredictionMarketError;
+use anchor_lang::solana_program::hash::hash;
 
 #[derive(Accounts)]
 pub struct WithdrawWinnings<'info> {
@@ -59,11 +60,11 @@ pub fn withdraw_winnings(ctx: Context<WithdrawWinnings>) -> Result<()> {
         PredictionMarketError::NoWinningsToWithdraw
     );
 
-    // SPL token transfer from vault (market's PDA) to user's token account
+    let question_hash = hash(market.question.as_bytes()).to_bytes();
     let seeds = &[
         b"market",
         market.admin.as_ref(),
-        market.question.as_bytes(),
+        &question_hash,
         &[market.bump],
     ];
     let signer = &[&seeds[..]];
