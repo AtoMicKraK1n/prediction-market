@@ -14,6 +14,7 @@ import {
   createMint,
   getOrCreateAssociatedTokenAccount,
   mintTo,
+  getAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
 import { createHash } from "crypto";
@@ -30,7 +31,12 @@ describe("prediction-market", () => {
   const user1 = Keypair.generate();
   const user2 = Keypair.generate();
 
-  let marketMint: PublicKey = null;
+  let marketMint: PublicKey;
+  let marketPda: PublicKey;
+  let vaultAta: PublicKey;
+
+  let question: string = "Will Solana price be above $200 by EOY 2025?";
+  let questionHash: Buffer = null;
 
   before(async () => {
     const airdropAndConfirm = async (publicKey: anchor.web3.PublicKey) => {
@@ -60,6 +66,8 @@ describe("prediction-market", () => {
       null,
       6
     );
+
+    questionHash = createHash("sha256").update(question).digest();
   });
 
   it("Initializes a new market", async () => {
@@ -70,16 +78,12 @@ describe("prediction-market", () => {
 
       const questionHash = createHash("sha256").update(question).digest();
 
-      const [marketPda] = PublicKey.findProgramAddressSync(
+      [marketPda] = PublicKey.findProgramAddressSync(
         [Buffer.from("market"), admin.publicKey.toBuffer(), questionHash],
         program.programId
       );
 
-      const vaultAta = await getAssociatedTokenAddress(
-        marketMint,
-        marketPda,
-        true
-      );
+      vaultAta = await getAssociatedTokenAddress(marketMint, marketPda, true);
 
       await program.methods
         .initializeMarket(
@@ -122,6 +126,74 @@ describe("prediction-market", () => {
       expect(marketAccountData.question).to.equal(question);
     } catch (error) {
       console.error("Test failed with error:", error);
+      throw error;
+    }
+  });
+
+  it("Allows a user to place a bet", async () => {
+    try {
+      const betAmount = new anchor.BN(10 * 1_000_000);
+      const outcome = true;
+
+      const user1TokenAccount = await getOrCreateAssociatedTokenAccount(
+        provider.connection,
+        user1,
+        marketMint,
+        user1.publicKey
+      );
+
+      await mintTo(
+        provider.connection,
+        admin,
+        marketMint,
+        user1TokenAccount.address,
+        admin,
+        100 * 1_000_000
+      );
+
+      const [userPositionPda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("position"),
+          marketPda.toBuffer(),
+          user1.publicKey.toBuffer(),
+        ],
+        program.programId
+      );
+
+      await program.methods
+        .placeBet(outcome, betAmount)
+        .accountsPartial({
+          user: user1.publicKey,
+          market: marketPda,
+          userTokenAccount: user1TokenAccount.address,
+          vault: vaultAta,
+          userPosition: userPositionPda,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .signers([user1])
+        .rpc();
+
+      const vaultAccount = await getAccount(provider.connection, vaultAta);
+      expect(vaultAccount.amount.toString()).to.equal(betAmount.toString());
+
+      const marketAccount = await program.account.market.fetch(marketPda);
+      expect(marketAccount.totalYesAmount.toString()).to.equal(
+        betAmount.toString()
+      );
+      expect(marketAccount.totalNoAmount.toString()).to.equal("0");
+
+      const userPositionAccount = await program.account.userPosition.fetch(
+        userPositionPda
+      );
+      expect(userPositionAccount.yesAmount.toString()).to.equal(
+        betAmount.toString()
+      );
+      expect(userPositionAccount.noAmount.toString()).to.equal("0");
+      expect(userPositionAccount.user.toBase58()).to.equal(
+        user1.publicKey.toBase58()
+      );
+    } catch (error) {
       throw error;
     }
   });

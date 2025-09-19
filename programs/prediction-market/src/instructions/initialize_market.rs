@@ -74,6 +74,7 @@ pub fn initialize_market(
     market.created_at = clock.unix_timestamp;
     market.expires_at = clock.unix_timestamp.saturating_add(duration_seconds);
     market.min_bet_amount = min_bet_amount;
+    market.mint = ctx.accounts.mint.key();
     market.total_yes_amount = 0;
     market.total_no_amount = 0;
     market.yes_bettors_count = 0;

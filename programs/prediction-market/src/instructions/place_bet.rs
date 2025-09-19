@@ -1,9 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
-use anchor_lang::system_program;
 use crate::state::{Market, UserPosition};
 use crate::errors::PredictionMarketError;
-
 
 #[derive(Accounts)]
 pub struct PlaceBet<'info> {

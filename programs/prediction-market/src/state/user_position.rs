@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 
 #[account]
-#[derive(InitSpace)]
 pub struct UserPosition {
     pub market: Pubkey,
     pub user: Pubkey,
@@ -9,6 +8,10 @@ pub struct UserPosition {
     pub no_amount: u64,
     pub has_claimed: bool,
     pub bump: u8,
+}
+
+impl UserPosition {
+    pub const INIT_SPACE: usize = 8 + 32 + 32 + 8 + 8 + 1 + 1; 
 }
 
 impl UserPosition {
