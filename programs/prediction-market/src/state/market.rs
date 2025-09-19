@@ -18,10 +18,8 @@ pub struct Market {
     pub bump: u8,
 }
 
-// In programs/prediction-market/src/state/market.rs
 
 impl Market {
-    // This const is for manual space calculation if you remove #[derive(InitSpace)]
     pub const INIT_SPACE: usize = 8 + 32 + (4 + 280) + 8 + 8 + 8 + 8 + 8 + 4 + 4 + 1 + 1 + (1 + 1) + 32 + 1;
 
     pub fn is_active(&self) -> bool {
