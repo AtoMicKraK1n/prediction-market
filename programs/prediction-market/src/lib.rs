@@ -25,7 +25,7 @@ pub mod prediction_market {
 
     pub fn place_bet(
         ctx: Context<PlaceBet>,
-        outcome: bool, // true for Yes, false for No
+        outcome: bool,
         amount: u64,
     ) -> Result<()> {
         instructions::place_bet(ctx, outcome, amount)
