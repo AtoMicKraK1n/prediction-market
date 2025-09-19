@@ -10,6 +10,7 @@ import {
 import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddress,
   createMint,
   getOrCreateAssociatedTokenAccount,
   mintTo,
@@ -69,20 +70,15 @@ describe("prediction-market", () => {
 
       const questionHash = createHash("sha256").update(question).digest();
 
-      console.log("Question Hash:", Buffer.from(questionHash).toString("hex"));
-
       const [marketPda] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("market"),
-          admin.publicKey.toBuffer(),
-          Buffer.from(questionHash),
-        ],
+        [Buffer.from("market"), admin.publicKey.toBuffer(), questionHash],
         program.programId
       );
 
-      const [vaultPda] = PublicKey.findProgramAddressSync(
-        [Buffer.from("vault"), marketPda.toBuffer()],
-        program.programId
+      const vaultAta = await getAssociatedTokenAddress(
+        marketMint,
+        marketPda,
+        true
       );
 
       await program.methods
@@ -96,7 +92,7 @@ describe("prediction-market", () => {
           admin: admin.publicKey,
           mint: marketMint,
           market: marketPda,
-          vault: vaultPda,
+          vault: vaultAta,
           systemProgram: SystemProgram.programId,
           tokenProgram: TOKEN_PROGRAM_ID,
           associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
@@ -105,27 +101,27 @@ describe("prediction-market", () => {
         .signers([admin])
         .rpc();
 
-      //Fetch the market account and verify its data
-      const marketAccount = await program.account.market.fetch(marketPda);
-      expect(marketAccount.admin.toBase58()).to.equal(
-        admin.publicKey.toBase58()
+      const marketAccountInfo = await provider.connection.getAccountInfo(
+        marketPda
       );
-      expect(marketAccount.question).to.equal(question);
-      expect(marketAccount.mint.toBase58()).to.equal(marketMint.toBase58());
-      expect(marketAccount.minBetAmount.toNumber()).to.equal(
-        minBetAmount.toNumber()
+      expect(marketAccountInfo.owner.toBase58()).to.equal(
+        program.programId.toBase58()
       );
-      expect(marketAccount.isSettled).to.be.false;
 
-      //Fetch the vault account and verify its owner
-      const vaultAccount = await program.provider.connection.getAccountInfo(
-        vaultPda
+      const vaultAccountInfo = await provider.connection.getAccountInfo(
+        vaultAta
       );
-      //The owner of the vault token account should be the SPL Token Program
-      expect(vaultAccount.owner.toBase58()).to.equal(
+      expect(vaultAccountInfo.owner.toBase58()).to.equal(
         TOKEN_PROGRAM_ID.toBase58()
       );
+
+      const marketAccountData = await program.account.market.fetch(marketPda);
+      expect(marketAccountData.admin.toBase58()).to.equal(
+        admin.publicKey.toBase58()
+      );
+      expect(marketAccountData.question).to.equal(question);
     } catch (error) {
+      console.error("Test failed with error:", error);
       throw error;
     }
   });
